@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>HTML Viewer на HTML</title>
+    <style>
+        /* Обнуляем базовые отступы */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body, html {
+            height: 100%;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #1e1e1e;
+            color: #fff;
+            overflow: hidden;
+            touch-action: manipulation;
+        }
+
+        /* Главный контейнер-сетка */
+        .app-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        /* Шапка сайта */
+        header {
+            background-color: #2d2d2d;
+            padding: 10px 20px;
+            border-bottom: 2px solid #3c3c3c;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        header h1 {
+            font-size: 1.2rem;
+            font-weight: 500;
+            letter-spacing: 0.5px;
+        }
+
+        .hint {
+            font-size: 0.85rem;
+            color: #aaaaaa;
+        }
+
+        /* Рабочая область: Код сверху, превью снизу */
+        .workspace {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            height: calc(100vh - 44px);
+        }
+
+        /* Панели */
+        .panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        /* Верхняя панель (Редактор) */
+        .editor-panel {
+            border-bottom: 2px solid #3c3c3c;
+            background-color: #1e1e1e;
+        }
+
+        /* Текстовое поле ввода */
+        textarea {
+            width: 100%;
+            height: 100%;
+            background-color: #1e1e1e;
+            color: #d4d4d4;
+            border: none;
+            padding: 15px;
+            padding-top: 25px; /* Отступ сверху, чтобы текст не залезал под кнопку */
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 1rem;
+            line-height: 1.5;
+            resize: none;
+            outline: none;
+        }
+
+        /* Нижняя панель (Просмотр) */
+        .preview-panel {
+            background-color: #ffffff;
+        }
+
+        /* Окно вывода результата */
+        iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            background-color: #ffffff;
+        }
+
+        /* Общие стили для кнопок "На весь экран" */
+        .fullscreen-btn {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            z-index: 10;
+            padding: 6px 12px;
+            font-size: 0.85rem;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            user-select: none;
+            transition: background-color 0.2s, transform 0.1s;
+        }
+
+        /* Стиль кнопки для панели КОДА (темная тема) */
+        .editor-panel .fullscreen-btn {
+            background-color: rgba(45, 45, 45, 0.85);
+            color: #ffffff;
+            border: 1px solid #555;
+        }
+
+        .editor-panel .fullscreen-btn:hover {
+            background-color: rgba(60, 60, 60, 1);
+            border-color: #777;
+        }
+
+        /* Стиль кнопки для панели ПРЕВЬЮ (светлая тема) */
+        .preview-panel .fullscreen-btn {
+            background-color: rgba(30, 30, 30, 0.85);
+            color: #ffffff;
+            border: 1px solid #555;
+        }
+
+        .preview-panel .fullscreen-btn:hover {
+            background-color: rgba(50, 50, 50, 1);
+            border-color: #777;
+        }
+
+        .fullscreen-btn:active {
+            transform: scale(0.95);
+        }
+
+        /* Метки панелей */
+        .badge {
+            position: absolute;
+            bottom: 10px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.6);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            pointer-events: none;
+            color: #ccc;
+        }
+        
+        .preview-panel .badge {
+            background: rgba(200, 200, 200, 0.8);
+            color: #333;
+        }
+
+        /* Адаптивность для мобильных телефонов */
+        @media (max-width: 768px) {
+            header {
+                padding: 8px 12px;
+            }
+            header h1 {
+                font-size: 1rem;
+            }
+            .hint {
+                display: none;
+            }
+            .fullscreen-btn {
+                top: 10px;
+                right: 10px;
+                padding: 10px 14px; /* Укрупненный размер для тапа на мобильных */
+                font-size: 0.9rem;
+            }
+            textarea {
+                padding: 10px;
+                padding-top: 45px; /* Чтобы код на мобилке не перекрывался верхней кнопкой */
+                font-size: 0.9rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        <header>
+            <h1>HTML Viewer</h1>
+            <div class="hint">Код сверху — результат снизу</div>
+        </header>
+
+        <div class="workspace">
+            <!-- Блок редактора (СВЕРХУ) -->
+            <div class="panel editor-panel" id="editor-panel">
+                <!-- Кнопка на весь экран ДЛЯ КОДА -->
+                <button class="fullscreen-btn" id="code-fullscreen-toggle" title="Развернуть код на весь экран">
+                    <span class="btn-icon">⛶</span> <span class="btn-text">На весь экран</span>
+                </button>
+                
+                <textarea id="html-input" placeholder="Вставьте или напишите ваш HTML код сюда..." spellcheck="false">
+<div style="text-align: center; margin-top: 30px; font-family: sans-serif; padding: 10px;">
+    <h1 style="color: #4CAF50; font-size: 24px;">Ура, работает! 🎉</h1>
+    <p style="color: #666; font-size: 16px; margin-top: 10px;">Это живое превью кода.</p>
+    <button onclick="alert('Привет с телефона!')" style="padding: 12px 24px; background: #008CBA; color: white; border: none; border-radius: 25px; cursor: pointer; margin-top: 15px; font-size: 16px; font-weight: bold;">
+        Нажми на меня
+    </button>
+</div></textarea>
+                <div class="badge">HTML код</div>
+            </div>
+
+            <!-- Блок отображения (СНИЗУ) -->
+            <div class="panel preview-panel" id="preview-panel">
+                <!-- Кнопка на весь экран ДЛЯ ПРЕВЬЮ -->
+                <button class="fullscreen-btn" id="preview-fullscreen-toggle" title="Развернуть превью на весь экран">
+                    <span class="btn-icon">⛶</span> <span class="btn-text">На весь экран</span>
+                </button>
+                
+                <iframe id="preview-output"></iframe>
+                <div class="badge">Превью</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const htmlInput = document.getElementById('html-input');
+        const previewOutput = document.getElementById('preview-output');
+        
+        const editorPanel = document.getElementById('editor-panel');
+        const previewPanel = document.getElementById('preview-panel');
+        
+        const codeToggle = document.getElementById('code-fullscreen-toggle');
+        const previewToggle = document.getElementById('preview-fullscreen-toggle');
+
+        // Функция обновления контента в iframe
+        function updatePreview() {
+            const code = htmlInput.value;
+            const iframeDoc = previewOutput.contentDocument || previewOutput.contentWindow.document;
+            
+            iframeDoc.open();
+            iframeDoc.write(code);
+            iframeDoc.close();
+        }
+
+        // Общая функция для переключения полноэкранного режима для любого элемента
+        function toggleElementFullscreen(element) {
+            if (!document.fullscreenElement) {
+                element.requestFullscreen().catch(err => {
+                    alert(`Ошибка перехода в полноэкранный режим: ${err.message}`);
+                });
+            } else {
+                document.exitFullscreen();
+            }
+        }
+
+        // Клик по кнопке полноэкранного КОДА
+        codeToggle.addEventListener('click', () => toggleElementFullscreen(editorPanel));
+        
+        // Клик по кнопке полноэкранного ПРЕВЬЮ
+        previewToggle.addEventListener('click', () => toggleElementFullscreen(previewPanel));
+
+        // Универсальное отслеживание изменения экрана (обновляет тексты на кнопках)
+        document.addEventListener('fullscreenchange', () => {
+            const activeFsElement = document.fullscreenElement;
+            
+            // Сбрасываем обе кнопки к исходному состоянию
+            resetButtonState(codeToggle);
+            resetButtonState(previewToggle);
+
+            // Если какой-то элемент развернут — меняем текст именно у его кнопки
+            if (activeFsElement === editorPanel) {
+                setButtonActiveState(codeToggle);
+            } else if (activeFsElement === previewPanel) {
+                setButtonActiveState(previewToggle);
+            }
+        });
+
+        function resetButtonState(btn) {
+            btn.querySelector('.btn-text').textContent = 'На весь экран';
+            btn.querySelector('.btn-icon').textContent = '⛶';
+        }
+
+        function setButtonActiveState(btn) {
+            btn.querySelector('.btn-text').textContent = 'Вернуть как было';
+            btn.querySelector('.btn-icon').textContent = '内';
+        }
+
+        // Слушатели событий
+        htmlInput.addEventListener('input', updatePreview);
+        window.addEventListener('load', updatePreview);
+    </script>
+</body>
+</html>
